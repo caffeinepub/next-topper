@@ -13,10 +13,8 @@ import { toast } from "sonner";
 import type { AppPage } from "../App";
 import LoginButton from "../components/LoginButton";
 import { BATCHES } from "../data/batches";
-import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
-  useClaimAdmin,
   useGetCallerUserProfile,
   useIsCallerAdmin,
   useResetAndClaimAdmin,
@@ -29,27 +27,17 @@ interface HomePageProps {
 export default function HomePage({ navigate }: HomePageProps) {
   const { identity } = useInternetIdentity();
   const isAuthenticated = !!identity;
-  const { isFetching: actorFetching } = useActor();
   const { data: isAdmin, isLoading: adminLoading } = useIsCallerAdmin();
   const { data: userProfile } = useGetCallerUserProfile();
-  const { mutate: claimAdmin, isPending: isClaiming } = useClaimAdmin();
-  const { mutate: resetAndClaim, isPending: isResetting } =
-    useResetAndClaimAdmin();
+  const resetAndClaimAdmin = useResetAndClaimAdmin();
 
-  const handleClaimAdmin = () => {
-    claimAdmin(undefined, {
-      onSuccess: () =>
-        toast.success("Admin access granted! You are now an admin."),
-      onError: (e) =>
-        toast.error(`Failed to claim admin: ${(e as Error).message}`),
-    });
-  };
-
-  const handleResetAndClaim = () => {
-    resetAndClaim(undefined, {
-      onSuccess: () => toast.success("You are now admin!"),
-      onError: (e) => toast.error(`Failed: ${(e as Error).message}`),
-    });
+  const handleBecomeAdmin = async () => {
+    try {
+      await resetAndClaimAdmin.mutateAsync();
+      toast.success("Admin access granted! Click the Admin Panel button.");
+    } catch {
+      toast.error("Failed to get admin access. Try again.");
+    }
   };
 
   return (
@@ -57,7 +45,6 @@ export default function HomePage({ navigate }: HomePageProps) {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          {/* Logo */}
           <div className="flex items-center gap-3">
             <img
               src="/assets/generated/logo-icon-transparent.dim_120x120.png"
@@ -74,7 +61,6 @@ export default function HomePage({ navigate }: HomePageProps) {
             </div>
           </div>
 
-          {/* Right actions */}
           <div className="flex items-center gap-3">
             {isAuthenticated && userProfile && (
               <span className="text-sm text-muted-foreground font-body hidden sm:block">
@@ -87,9 +73,25 @@ export default function HomePage({ navigate }: HomePageProps) {
                 size="sm"
                 variant="outline"
                 className="gap-2 font-display font-medium border-primary/30 text-primary hover:bg-primary/10"
+                data-ocid="header.admin_panel.button"
               >
                 <Shield className="h-4 w-4" />
                 <span className="hidden sm:inline">Admin Panel</span>
+              </Button>
+            )}
+            {isAuthenticated && !adminLoading && !isAdmin && (
+              <Button
+                onClick={handleBecomeAdmin}
+                size="sm"
+                variant="ghost"
+                disabled={resetAndClaimAdmin.isPending}
+                className="gap-2 font-display font-medium text-muted-foreground hover:text-primary text-xs"
+                data-ocid="header.become_admin.button"
+              >
+                <Shield className="h-3 w-3" />
+                {resetAndClaimAdmin.isPending
+                  ? "Getting access..."
+                  : "Admin Access"}
               </Button>
             )}
             <LoginButton />
@@ -98,9 +100,7 @@ export default function HomePage({ navigate }: HomePageProps) {
       </header>
 
       <main className="flex-1">
-        {/* Hero Section */}
         <section className="relative overflow-hidden bg-foreground text-background py-16 sm:py-24 grain">
-          {/* Decorative circles */}
           <div
             className="absolute -top-24 -right-24 w-64 h-64 rounded-full opacity-10"
             style={{ background: "var(--grad-saffron)" }}
@@ -135,43 +135,10 @@ export default function HomePage({ navigate }: HomePageProps) {
                   Explore Batches
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
-                {isAuthenticated && !adminLoading && !isAdmin && (
-                  <Button
-                    onClick={handleClaimAdmin}
-                    disabled={isClaiming || actorFetching}
-                    variant="outline"
-                    data-ocid="hero.claim_admin.button"
-                    className="font-display font-medium border-background/30 text-background hover:bg-background/10"
-                  >
-                    <Shield className="mr-2 h-4 w-4" />
-                    {actorFetching
-                      ? "Loading..."
-                      : isClaiming
-                        ? "Claiming..."
-                        : "Claim Admin"}
-                  </Button>
-                )}
-                {isAuthenticated && !adminLoading && !isAdmin && (
-                  <Button
-                    onClick={handleResetAndClaim}
-                    disabled={isResetting || actorFetching}
-                    variant="outline"
-                    data-ocid="hero.take_admin.button"
-                    className="font-display font-medium border-primary/60 text-primary bg-primary/10 hover:bg-primary/20"
-                  >
-                    <Shield className="mr-2 h-4 w-4" />
-                    {actorFetching
-                      ? "Loading..."
-                      : isResetting
-                        ? "Taking..."
-                        : "Take Admin"}
-                  </Button>
-                )}
               </div>
             </div>
           </div>
 
-          {/* Stats row */}
           <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-12 relative z-10">
             <div className="grid grid-cols-3 gap-4 max-w-md">
               {[
@@ -195,7 +162,6 @@ export default function HomePage({ navigate }: HomePageProps) {
           </div>
         </section>
 
-        {/* Batch Grid */}
         <section id="batches" className="py-16 sm:py-20">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="text-center mb-12 animate-fade-up">
@@ -230,10 +196,7 @@ export default function HomePage({ navigate }: HomePageProps) {
                     ${batch.cardClass}
                   `}
                 >
-                  {/* Shine overlay on hover */}
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
-
-                  {/* Class number badge */}
                   <div className="relative z-10">
                     <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center mb-3 group-hover:bg-white/30 transition-colors">
                       <span className="text-2xl">{batch.emoji}</span>
@@ -245,8 +208,6 @@ export default function HomePage({ navigate }: HomePageProps) {
                       {batch.description}
                     </p>
                   </div>
-
-                  {/* Arrow */}
                   <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0">
                     <ChevronRight className="h-5 w-5 text-white" />
                   </div>
@@ -256,7 +217,6 @@ export default function HomePage({ navigate }: HomePageProps) {
           </div>
         </section>
 
-        {/* Features section */}
         <section className="py-16 bg-secondary/40 border-y border-border">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
@@ -293,7 +253,6 @@ export default function HomePage({ navigate }: HomePageProps) {
           </div>
         </section>
 
-        {/* CTA for non-logged-in users */}
         {!isAuthenticated && (
           <section className="py-16">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center">
@@ -315,7 +274,6 @@ export default function HomePage({ navigate }: HomePageProps) {
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-border py-8 bg-card">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">

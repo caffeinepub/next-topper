@@ -27,7 +27,7 @@ actor {
   let userProfiles = Map.empty<Principal, UserProfile>();
   var nextId = 0;
   var adminClaimed = false;
-  var adminPassword = "nexttopper123";
+  stable var adminPassword = "admin";
 
   func isAnonymous(principal : Principal) : Bool {
     principal.isAnonymous();

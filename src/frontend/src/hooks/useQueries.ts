@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { UserProfile, Video } from "../backend.d";
+import {
+  checkAdminPassword as localCheckAdminPassword,
+  saveAdminPassword as localSaveAdminPassword,
+} from "../utils/adminPassword";
 import { useActor } from "./useActor";
 
 // ─── User Profile ────────────────────────────────────────────────────────────
@@ -89,26 +93,20 @@ export function useResetAndClaimAdmin() {
   });
 }
 
-// ─── Admin Password ───────────────────────────────────────────────────────────
+// ─── Admin Password (local storage based for reliability) ────────────────────
 
 export function useCheckAdminPassword() {
-  const { actor } = useActor();
-
   return useMutation({
     mutationFn: async (password: string) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.checkAdminPassword(password);
+      return localCheckAdminPassword(password);
     },
   });
 }
 
 export function useSetAdminPassword() {
-  const { actor } = useActor();
-
   return useMutation({
     mutationFn: async (newPassword: string) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.setAdminPassword(newPassword);
+      localSaveAdminPassword(newPassword);
     },
   });
 }
@@ -144,7 +142,6 @@ export function useAddVideo() {
       queryClient.invalidateQueries({
         queryKey: ["videosByBatch", variables.batchId],
       });
-      // Invalidate all batch queries to refresh counts
       queryClient.invalidateQueries({ queryKey: ["videosByBatch"] });
     },
   });

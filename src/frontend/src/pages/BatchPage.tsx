@@ -64,6 +64,7 @@ function VideoPlayer({
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isBuffering, setIsBuffering] = useState(false);
   const { blobId, title } = parseVideoTitle(video.title);
 
   useEffect(() => {
@@ -113,17 +114,35 @@ function VideoPlayer({
             </div>
           )}
           {!loading && !error && videoUrl && (
-            <video
-              src={videoUrl}
-              controls
-              autoPlay
-              preload="auto"
-              className="w-full aspect-video"
-              controlsList="nodownload"
-              playsInline
-            >
-              <track kind="captions" />
-            </video>
+            <div className="relative">
+              <video
+                src={videoUrl}
+                controls
+                autoPlay
+                preload="auto"
+                className="w-full aspect-video"
+                controlsList="nodownload"
+                playsInline
+                onWaiting={() => setIsBuffering(true)}
+                onPlaying={() => setIsBuffering(false)}
+                onCanPlay={() => setIsBuffering(false)}
+              >
+                <track kind="captions" />
+              </video>
+              {isBuffering && (
+                <div
+                  className="absolute inset-0 flex items-center justify-center bg-black/50 pointer-events-none"
+                  data-ocid="batch.video.loading_state"
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-10 w-10 text-white animate-spin" />
+                    <span className="text-white/70 text-xs font-body">
+                      Buffering…
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </DialogContent>
