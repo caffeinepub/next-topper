@@ -1,6 +1,13 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
   BookOpen,
   ChevronRight,
   GraduationCap,
@@ -9,6 +16,7 @@ import {
   Star,
   Users,
 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import type { AppPage } from "../App";
 import LoginButton from "../components/LoginButton";
@@ -31,6 +39,10 @@ export default function HomePage({ navigate }: HomePageProps) {
   const { data: userProfile } = useGetCallerUserProfile();
   const resetAndClaimAdmin = useResetAndClaimAdmin();
 
+  const [showAdminPasswordDialog, setShowAdminPasswordDialog] = useState(false);
+  const [adminPasswordInput, setAdminPasswordInput] = useState("");
+  const [adminPasswordError, setAdminPasswordError] = useState("");
+
   const handleBecomeAdmin = async () => {
     try {
       await resetAndClaimAdmin.mutateAsync();
@@ -40,8 +52,91 @@ export default function HomePage({ navigate }: HomePageProps) {
     }
   };
 
+  const handleAdminAccessClick = () => {
+    setAdminPasswordInput("");
+    setAdminPasswordError("");
+    setShowAdminPasswordDialog(true);
+  };
+
+  const handleAdminPasswordSubmit = async () => {
+    if (adminPasswordInput === "julfiquar") {
+      setShowAdminPasswordDialog(false);
+      setAdminPasswordInput("");
+      setAdminPasswordError("");
+      await handleBecomeAdmin();
+    } else {
+      setAdminPasswordError("Incorrect password");
+    }
+  };
+
+  const handleDialogClose = () => {
+    setShowAdminPasswordDialog(false);
+    setAdminPasswordInput("");
+    setAdminPasswordError("");
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Admin Password Dialog */}
+      <Dialog open={showAdminPasswordDialog} onOpenChange={handleDialogClose}>
+        <DialogContent className="sm:max-w-sm" data-ocid="admin_access.dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-display">
+              <Shield className="h-5 w-5 text-primary" />
+              Admin Access
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground font-body">
+              Enter the admin password to continue.
+            </p>
+            <div className="space-y-2">
+              <Input
+                type="password"
+                placeholder="Enter password"
+                value={adminPasswordInput}
+                onChange={(e) => {
+                  setAdminPasswordInput(e.target.value);
+                  if (adminPasswordError) setAdminPasswordError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAdminPasswordSubmit();
+                }}
+                className="font-body"
+                data-ocid="admin_access.input"
+                autoFocus
+              />
+              {adminPasswordError && (
+                <p
+                  className="text-sm text-destructive font-body"
+                  data-ocid="admin_access.error_state"
+                >
+                  {adminPasswordError}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={handleDialogClose}
+                className="font-display"
+                data-ocid="admin_access.cancel_button"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAdminPasswordSubmit}
+                disabled={resetAndClaimAdmin.isPending}
+                className="font-display"
+                data-ocid="admin_access.confirm_button"
+              >
+                {resetAndClaimAdmin.isPending ? "Verifying..." : "Confirm"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -81,7 +176,7 @@ export default function HomePage({ navigate }: HomePageProps) {
             )}
             {isAuthenticated && !adminLoading && !isAdmin && (
               <Button
-                onClick={handleBecomeAdmin}
+                onClick={handleAdminAccessClick}
                 size="sm"
                 variant="ghost"
                 disabled={resetAndClaimAdmin.isPending}
