@@ -27,15 +27,38 @@ actor {
   let userProfiles = Map.empty<Principal, UserProfile>();
   var nextId = 0;
   var adminClaimed = false;
-  stable var adminPassword = "admin";
+  var adminPassword = "julfiquar";
+
+  // Stable storage for admin principal - persists across upgrades
+  var superAdminText : Text = "";
 
   func isAnonymous(principal : Principal) : Bool {
     principal.isAnonymous();
   };
 
+  // Force set a principal as admin, ensuring any existing role is overwritten
   func forceSetAdmin(principal : Principal) {
+    accessControlState.userRoles.remove(principal);
     accessControlState.userRoles.add(principal, #admin);
     accessControlState.adminAssigned := true;
+  };
+
+  // Restore stable admin to in-memory map if needed
+  func restoreStableAdmin(caller : Principal) {
+    if (superAdminText != "" and caller.toText() == superAdminText) {
+      switch (accessControlState.userRoles.get(caller)) {
+        case (?(#admin)) {};
+        case (_) { forceSetAdmin(caller) };
+      };
+    };
+  };
+
+  // Safe admin check that never traps
+  func safeIsAdmin(principal : Principal) : Bool {
+    switch (accessControlState.userRoles.get(principal)) {
+      case (null) { false };
+      case (?role) { role == #admin };
+    };
   };
 
   public shared ({ caller }) func claimAdmin() : async () {
@@ -56,12 +79,18 @@ actor {
       Runtime.trap("Anonymous principal cannot claim admin role");
     };
 
+    // Persist admin principal across upgrades
+    superAdminText := caller.toText();
     forceSetAdmin(caller);
     adminClaimed := true;
   };
 
+  // Reliable isAdmin - checks stable storage (survives upgrades) and never traps
   public query ({ caller }) func isAdmin() : async Bool {
-    AccessControl.isAdmin(accessControlState, caller);
+    if (superAdminText != "" and caller.toText() == superAdminText) {
+      return true;
+    };
+    safeIsAdmin(caller);
   };
 
   public query func checkAdminPassword(password : Text) : async Bool {
@@ -69,7 +98,8 @@ actor {
   };
 
   public shared ({ caller }) func setAdminPassword(newPassword : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    restoreStableAdmin(caller);
+    if (not safeIsAdmin(caller)) {
       Runtime.trap("Unauthorized: Only admins can change the admin password");
     };
     if (newPassword.size() < 4) {
@@ -79,28 +109,26 @@ actor {
   };
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view profiles");
-    };
     userProfiles.get(caller);
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    if (not Principal.equal(caller, user) and not AccessControl.isAdmin(accessControlState, caller)) {
+    if (not Principal.equal(caller, user) and not safeIsAdmin(caller)) {
       Runtime.trap("Unauthorized: Can only view your own profile");
     };
     userProfiles.get(user);
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
+    if (isAnonymous(caller)) {
+      Runtime.trap("Anonymous principal cannot save profiles");
     };
     userProfiles.add(caller, profile);
   };
 
   public shared ({ caller }) func addVideo(title : Text, batchId : Text) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    restoreStableAdmin(caller);
+    if (not safeIsAdmin(caller)) {
       Runtime.trap("Unauthorized: Only admins can add videos");
     };
 
@@ -118,7 +146,8 @@ actor {
   };
 
   public shared ({ caller }) func deleteVideo(id : Nat) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    restoreStableAdmin(caller);
+    if (not safeIsAdmin(caller)) {
       Runtime.trap("Unauthorized: Only admins can delete videos");
     };
 

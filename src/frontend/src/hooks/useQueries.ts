@@ -52,7 +52,8 @@ export function useIsCallerAdmin() {
     queryKey: ["isCallerAdmin"],
     queryFn: async () => {
       if (!actor) return false;
-      return actor.isCallerAdmin();
+      // Use isAdmin() - checks stable storage and never traps
+      return actor.isAdmin();
     },
     enabled: !!actor && !actorFetching,
     staleTime: 30_000,

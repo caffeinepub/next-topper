@@ -369,7 +369,7 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
         </div>
 
         <p className="text-center text-xs text-muted-foreground font-body mt-4">
-          Default password: <span className="font-mono">nexttopper123</span>
+          Default password: <span className="font-mono">julfiquar</span>
         </p>
       </div>
     </div>
